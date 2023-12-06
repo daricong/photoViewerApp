@@ -1,0 +1,298 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Photo-viewer app with Cognito Authentication and Hosted UI
+
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: nodejs18.x
+    MemorySize: 128
+    Layers:
+      - !Ref DependenciesLayer
+    Environment:
+      Variables:
+        BUCKET_NAME: !Ref ImagesS3Bucket
+        DYNAMODB_TABLE: !Ref PhotoViewerDynamoDBTable
+
+Resources:
+  # S3 Bucket where images will be stored
+  ImagesS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: imageapp-upload
+
+  # DynamoDB table
+  PhotoViewerDynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: PhotoViewerDB
+      AttributeDefinitions:
+        - AttributeName: photoId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: photoId
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+
+  # Lambda execution role with permissions for S3, DynamoDB, and CloudWatch Logs
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: [lambda.amazonaws.com]
+            Action: ["sts:AssumeRole"]
+      Policies:
+        - PolicyName: LambdaS3DynamoDBPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource: !Sub "arn:aws:s3:::${ImagesS3Bucket}/*"
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:Scan
+                  - dynamodb:Query
+                Resource: !GetAtt PhotoViewerDynamoDBTable.Arn
+        - PolicyName: LambdaCloudWatchLogsPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "arn:aws:logs:*:*:*"
+        - PolicyName: CognitoAccessPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cognito-idp:ListUserPools
+                  - cognito-idp:AdminAddUserToGroup
+                Resource: "*"
+
+  # Cognito User Pool with email-based sign-up and verification
+  PhotoViewerUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: "photo-viewer-user-pool"
+      Schema:
+        - Name: email
+          Required: true
+          Mutable: false
+          AttributeDataType: String
+      UsernameAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+      EmailVerificationSubject: "Your verification code"
+      EmailVerificationMessage: "Your verification code is {####}."
+      LambdaConfig:
+        PostConfirmation: !GetAtt PostConfirmationFunction.Arn
+
+  # Cognito User Pool Client
+  PhotoViewerUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: "photo-viewer-app-client"
+      UserPoolId: !Ref PhotoViewerUserPool
+      GenerateSecret: false
+      CallbackURLs:
+        - "https://yourdomain.com/callback"
+      LogoutURLs:
+        - "https://yourdomain.com/logout"
+      SupportedIdentityProviders: ["COGNITO"]
+      AllowedOAuthFlows:
+        - implicit
+      AllowedOAuthScopes:
+        - "phone"
+        - "email"
+        - "openid"
+        - "profile"
+        - "aws.cognito.signin.user.admin"
+      AllowedOAuthFlowsUserPoolClient: true
+
+  # Cognito User Pool Domain for Hosted UI
+  PhotoViewerUserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: "photo-viewer"
+      UserPoolId: !Ref PhotoViewerUserPool
+
+    # Cognito User Pool Group
+  PhotoViewerUserPoolGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: "USER"
+      UserPoolId: !Ref PhotoViewerUserPool
+      Description: "Default user group"
+
+  PhotoViewerAdminUserPoolGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: "ADMIN"
+      UserPoolId: !Ref PhotoViewerUserPool
+      Description: "Administrator group"
+
+  # API Gateway for the Lambda functions
+  PhotoViewerApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: API
+      Cors:
+        AllowMethods: "'*'"
+        AllowHeaders: "'*'"
+        AllowOrigin: "'*'"
+      Auth:
+        AddDefaultAuthorizerToCorsPreflight: False
+        DefaultAuthorizer: CognitoAuthorizer
+        Authorizers:
+          CognitoAuthorizer:
+            Type: COGNITO_USER_POOLS
+            UserPoolArn: !GetAtt PhotoViewerUserPool.Arn
+            IdentitySource: method.request.header.Authorization
+
+  # Lambda function for uploading images
+  UploadS3ImagesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: UploadS3Images
+      CodeUri: functions/uploadS3Images/
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Events:
+        UploadImageApi:
+          Type: Api
+          Properties:
+            Path: /uploadImages
+            Method: post
+            RestApiId: !Ref PhotoViewerApi
+
+  # Lambda function for getting images
+  GetS3ImagesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: GetS3Images
+      CodeUri: functions/getS3Images/
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Events:
+        GetImageApi:
+          Type: Api
+          Properties:
+            Path: /getImages
+            Method: get
+            RestApiId: !Ref PhotoViewerApi
+
+  # Lambda function for updating images view
+  UpdateS3ImagesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: UpdateS3Images
+      CodeUri: functions/updateS3Images/
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Events:
+        UpdateImageApi:
+          Type: Api
+          Properties:
+            Path: /updateImages
+            Method: patch
+            RestApiId: !Ref PhotoViewerApi
+
+  # Lambda function for deleting images
+  DeleteS3ImagesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: DeleteS3Images
+      CodeUri: functions/deleteS3Images/
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Events:
+        DeleteImageApi:
+          Type: Api
+          Properties:
+            Path: /deleteImages
+            Method: delete
+            RestApiId: !Ref PhotoViewerApi
+
+  # PostConfirmation Lambda Function
+  PostConfirmationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: PostConfirmationFunction
+      CodeUri: functions/postConfirmationTrigger/
+      Handler: index.handler
+      Runtime: nodejs18.x
+      Role: !GetAtt LambdaExecutionRole.Arn
+
+  # Lambda Invoke Permission for PreSignup
+  PostConfirmationLambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt PostConfirmationFunction.Arn
+      Principal: cognito-idp.amazonaws.com
+      SourceArn: !GetAtt PhotoViewerUserPool.Arn
+
+  # Lambda Layer for dependencies
+  DependenciesLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: DependenciesLayer
+      Description: "Lambda Layer for dependencies"
+      ContentUri: Dependencies/
+      CompatibleRuntimes:
+        - nodejs18.x
+      RetentionPolicy: Delete
+
+Outputs:
+  UploadS3ImagesApi:
+    Description: "API Gateway endpoint URL for Upload Image function"
+    Value: !Sub "https://${PhotoViewerApi}.execute-api.${AWS::Region}.amazonaws.com/API/uploadImages/"
+
+  GetS3ImagesApi:
+    Description: "API Gateway endpoint URL for Get Image function"
+    Value: !Sub "https://${PhotoViewerApi}.execute-api.${AWS::Region}.amazonaws.com/API/getImages/"
+
+  UpdateS3ImagesApi:
+    Description: "API Gateway endpoint URL for Update Image function"
+    Value: !Sub "https://${PhotoViewerApi}.execute-api.${AWS::Region}.amazonaws.com/API/updateImages/"
+
+  DeleteS3ImagesApi:
+    Description: "API Gateway endpoint URL for Delete Image function"
+    Value: !Sub "https://${PhotoViewerApi}.execute-api.${AWS::Region}.amazonaws.com/API/deleteImages/"
+
+  CognitoHostedUi:
+    Description: "Cognito Hosted UI URL"
+    Value: !Sub "https://${PhotoViewerUserPoolDomain}.auth.${AWS::Region}.amazoncognito.com"
+
+  UserPoolId:
+    Description: "ID of the Cognito User Pool"
+    Value: !Ref PhotoViewerUserPool
+
+  UserPoolClientId:
+    Description: "ID of the Cognito User Pool Client"
+    Value: !Ref PhotoViewerUserPoolClient

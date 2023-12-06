@@ -1,0 +1,140 @@
+.gallery-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem;
+    background: #f9f9f9;
+    min-height: 100vh;
+  }
+  
+  .gallery-title {
+    font-size: 2.5rem;
+    color: #333;
+    margin-bottom: 1.5rem;
+  }
+  
+  .image-gallery {
+    display: flex;
+    flex-direction: column;
+    width: 80%;
+    max-width: 1000px; /* Adjust the max-width as you see fit */
+    margin-bottom: 2rem;
+  }
+  
+  .image-item {
+    display: flex;
+    align-items: center;
+    background: #fff;
+    border: 1px solid #ddd;
+    margin-bottom: 1.5rem;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  }
+  
+  .image {
+    display: block;
+    width: 40%;
+    height: auto;
+    border-right: 1px solid #ddd;
+    object-fit: cover;
+  }
+  
+  .image-info {
+    padding: 1rem;
+    width: 60%;
+  }
+  
+  .image-title {
+    font-size: 1.5rem;
+    color: #333;
+    margin-bottom: 0.5rem;
+  }
+  
+  .image-description {
+    font-size: 1rem;
+    color: #666;
+  }
+  
+  /* Add some responsiveness */
+  @media (max-width: 768px) {
+    .image-item {
+      flex-direction: column;
+    }
+  
+    .image {
+      width: 100%;
+      border-right: none;
+      border-bottom: 1px solid #ddd;
+    }
+  
+    .image-info {
+      width: 100%;
+    }
+  }
+  
+  .update-status {
+    margin-top: 10px;
+    font-size: 0.9em;
+    color: #28a745; /* Green color for success messages */
+    font-style: italic;
+  }
+  
+  .update-status.error {
+    color: #dc3545; /* Red color for error messages */
+  }
+  
+  /* Add this to your CSS */
+.delete-icon {
+    color: red;
+    cursor: pointer;
+    margin-left: 10px;
+  }
+  
+  .delete-confirmation {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: white;
+    padding: 20px;
+    border: 1px solid #ccc;
+    box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
+    text-align: center;
+  }
+  
+  .delete-confirmation button {
+    margin: 10px;
+    padding: 5px 10px;
+    background-color: red;
+    color: white;
+    border: none;
+    cursor: pointer;
+  }
+
+  /* Add this CSS to your imageGallery.css file */
+
+/* Styles for the delete notification message */
+.delete-notification {
+    background-color: #4caf50; /* Green background color */
+    color: white; /* White text color */
+    padding: 10px 20px; /* Padding around the text */
+    border-radius: 4px; /* Rounded corners */
+    position: fixed; /* Fixed position at the top */
+    top: 20px; /* Distance from the top of the viewport */
+    right: 20px; /* Distance from the right of the viewport */
+    z-index: 9999; /* Ensure it appears above other content */
+    animation: slide-in 0.5s ease-in-out; /* Slide-in animation */
+  }
+  
+  /* Animation for slide-in effect */
+  @keyframes slide-in {
+    0% {
+      transform: translateY(-100%);
+    }
+    100% {
+      transform: translateY(0);
+    }
+  }
+  
+  
