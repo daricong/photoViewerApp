@@ -69,7 +69,7 @@ This application is deployed using AWS Free Tier account. The infrastructure is 
 
 ### Comparison of Admin and User UI (Admin on the right)
 
-![Comparison](https://i.ibb.co/SnCBp43/Comparison-Adminand-User.png)
+![Comparison](https://i.ibb.co/26cMKHt/Comparison.gif)
 
 ### Viewable of Image
 ![Viewable](https://i.ibb.co/0GxD2dK/Viewable.gif)
