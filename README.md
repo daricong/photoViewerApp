@@ -66,7 +66,6 @@ This application is deployed using AWS Free Tier account. The infrastructure is 
 - `/photo-viewer-backend` - Contains the AWS Lambda function code and CloudFormation template for setting up the infrastructure.
 
 ## Demo
-
 ### Comparison of Admin and User UI (Admin on the right)
 
 ![Comparison](https://i.ibb.co/VxJNfGW/Comparison-User-And-Admin.gif)
@@ -79,12 +78,5 @@ This application is deployed using AWS Free Tier account. The infrastructure is 
 
 ### Upload Image
 ![Upload](https://i.ibb.co/Sr8Wvmq/Upload.gif)
-
-## Author
-
-- ***DaricOng***
-
-
-
 
 
