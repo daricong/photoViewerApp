@@ -54,7 +54,7 @@ This application is deployed using AWS Free Tier account. The infrastructure is 
 ### Administrator
 
 - **Uploading Photos:** Login as an admin to upload and manage photos.
-- **Update Photo Public View Access:** Set the access level for each photo during the upload process.
+- **Update Photo Public View Access:** Set the visibility of image to public
 - **Delete Photo:** Remove selected photo.
 
 ### Users
